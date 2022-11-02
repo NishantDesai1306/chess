@@ -1,0 +1,36 @@
+.eval-bar-main {
+    position: relative;
+    width: 50px;
+    height: 100%;
+    cursor: pointer;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.eval-bar-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.eval-bar-container {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    justify-content: center;
+}
+
+.advantage {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.top-advantage {
+    top: 0;
+}
+
+.bottom-advantage {
+    bottom: 0;
+}

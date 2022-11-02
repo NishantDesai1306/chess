@@ -1,0 +1,5 @@
+#CHESSBOARD-ROOT {
+    width: 50vw;
+    resize: both;
+    overflow: auto;
+}
