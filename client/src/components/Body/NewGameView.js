@@ -194,7 +194,6 @@ function PGNModal({ show, onSubmit, onCancel }) {
 
   const handleSubmit = useCallback(
     async (e) => {
-      alert("uploaded");
       const file = e.target.files[0];
       const pgn = await file.text();
       const isValid = chess.loadPgn(pgn);
