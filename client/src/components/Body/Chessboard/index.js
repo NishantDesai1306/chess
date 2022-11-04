@@ -20,6 +20,7 @@ import "cm-chessboard/src/cm-chessboard/extensions/arrows/assets/arrows.css";
 
 import "./index.css";
 import SettingsMenu from "./Settings";
+import GameOver from "./GameOver";
 const ROOT_ID = "CHESSBOARD-ROOT";
 
 export const PlayerType = {
@@ -40,7 +41,10 @@ const ChessBoardComponent = ({
   chess,
   blackPlayerType,
   whitePlayerType,
+  onGameOver,
 }) => {
+  const [winner, setWinner] = useState(null);
+  const [drawReason, setDrawReason] = useState(null);
   const [cnt, setCnt] = useState(0);
   const [currentTurn, setCurrentTurn] = useState(chess.turn());
   const playerTypeObj = useMemo(() => {
@@ -97,6 +101,7 @@ const ChessBoardComponent = ({
         audioToPlay = 'gameOver';
 
         if (chess.isCheckmate()) {
+          setWinner(color);
           console.log(`${color} won the game`);
         } else if (chess.isDraw()) {
           // show draw popup
@@ -110,7 +115,7 @@ const ChessBoardComponent = ({
             drawReason = "three fold repetition";
           }
 
-          console.log(`game drawn because of ${drawReason}`);
+          setDrawReason(drawReason);
         }
       }
 
@@ -347,6 +352,12 @@ const ChessBoardComponent = ({
           toggelOrientation={toggelOrientation}
         />
       </div>
+
+      <GameOver
+        winner={winner}
+        drawReason={drawReason}
+        onSubmit={onGameOver}
+      />
     </div>
   );
 };

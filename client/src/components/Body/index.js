@@ -33,6 +33,7 @@ const Body = () => {
         chess={chess}
         whitePlayerType={gameConfig[COLOR.white]}
         blackPlayerType={gameConfig[COLOR.black]}
+        onGameOver={() => setChess(null)}
       />
     </div>
   );
