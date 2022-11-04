@@ -36,7 +36,7 @@ export default function NewGameView({ onSubmit }) {
   );
 
   return (
-    <Card style={{ minWidth: 250 }}>
+    <Card style={{ minWidth: 300 }}>
       <Card.Header as="h5" className="p-3">
         New Game
       </Card.Header>
