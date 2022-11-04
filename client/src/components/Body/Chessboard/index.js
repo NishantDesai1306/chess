@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Chess, KING } from "chess.js";
+import { KING } from "chess.js";
 import {
   Chessboard,
   MARKER_TYPE,
@@ -37,12 +37,12 @@ export const Flags = {
 }  
 
 const ChessBoardComponent = ({
-  fen,
+  chess,
   blackPlayerType,
   whitePlayerType,
 }) => {
   const [cnt, setCnt] = useState(0);
-  const [currentTurn, setCurrentTurn] = useState(COLOR.white);
+  const [currentTurn, setCurrentTurn] = useState(chess.turn());
   const playerTypeObj = useMemo(() => {
     return {
       [COLOR.black]: blackPlayerType,
@@ -53,12 +53,11 @@ const ChessBoardComponent = ({
   const lastArrowSquare = useRef(null); 
   const analysis = useRef(null);
 
-  const chess = useMemo(() => new Chess(), []);
   const chessboardInstance = useRef();
 
   const audio = useRef(null);
 
-  const loadAnalysisData = useCallback(async () => {
+  const loadAnalysisData = useCallback(async (forceReload) => {
     const {
       bestMove,
       score,
@@ -74,16 +73,29 @@ const ChessBoardComponent = ({
       bestMove,
       score,
     };
+
+    if (forceReload) {
+      setCnt((cnt) => cnt + 1);
+    }
   }, [chess]);
 
   const onMoveComplete = useCallback(
     async (moveResult) => {
+      let audioToPlay = 'move';
       const { color, captured } = moveResult;
       const chessboard = chessboardInstance.current;
 
       if (!chessboard) return;
 
+      if (captured) {
+        audioToPlay = 'capture';
+      }
+      if (chess.inCheck()) {
+        audioToPlay = 'check';
+      } 
       if (chess.isGameOver()) {
+        audioToPlay = 'gameOver';
+
         if (chess.isCheckmate()) {
           console.log(`${color} won the game`);
         } else if (chess.isDraw()) {
@@ -102,10 +114,8 @@ const ChessBoardComponent = ({
         }
       }
 
-      if (captured || chess.inCheck()) {
-        audio.current?.capture.play();
-      } else {
-        audio.current?.move.play();
+      if (audio.current[audioToPlay]) {
+        audio.current[audioToPlay].play();
       }
 
       chessboard.removeArrows();
@@ -121,7 +131,6 @@ const ChessBoardComponent = ({
 
   const handleHumanMove = useCallback(
     (event) => {
-      console.log(event);
       const { type, chessboard } = event;
 
       chessboard.removeMarkers(MARKER_TYPE.dot);
@@ -249,10 +258,10 @@ const ChessBoardComponent = ({
   // init
   useEffect(() => {
     if (!chessboardInstance.current) {
-      const initialFen = fen || chess.fen();
+      console.log(chess.fen());
       const element = document.getElementById(ROOT_ID);
       const instance = new Chessboard(element, {
-        position: initialFen,
+        position: chess.fen(),
         sprite: { url: "/assets/images/pieces.svg" },
         style: { moveFromMarker: undefined, moveToMarker: undefined }, // disable standard markers
         orientation: COLOR.white,
@@ -272,16 +281,21 @@ const ChessBoardComponent = ({
 
       chessboardInstance.current = instance;
 
-      loadAnalysisData();
+      loadAnalysisData(true);
     }
 
     if (!audio.current) {
       audio.current = {
         move: new Audio("/assets/audio/move.mp3"),
         capture: new Audio("/assets/audio/capture.mp3"),
+        check: new Audio("/assets/audio/check.mp3"),
+        gameStart: new Audio("/assets/audio/game-start.mp3"),
+        gameOver: new Audio("/assets/audio/game-over.mp3"),
       };
+
+      audio.current.gameStart.play();
     }
-  }, [chess, fen, handleHumanMove, loadAnalysisData, makeComputerMove, onSquareSelect, playerTypeObj]);
+  }, [chess, handleHumanMove, loadAnalysisData, makeComputerMove, onSquareSelect, playerTypeObj]);
 
   useEffect(() => {
     const playerTypeOfMover = playerTypeObj[currentTurn];
