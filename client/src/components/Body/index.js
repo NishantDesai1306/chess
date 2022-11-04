@@ -3,7 +3,7 @@ import { COLOR } from "cm-chessboard/src/cm-chessboard/Chessboard";
 import { Chess } from "chess.js";
 
 import ChessBoardComponent from "./Chessboard";
-import NewGameView from "./NewGameModal";
+import NewGameView from "./NewGameView";
 
 import "./index.css";
 
