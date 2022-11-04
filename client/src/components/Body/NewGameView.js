@@ -180,7 +180,7 @@ function FENModal({ show, onSubmit, onCancel }) {
         <Button variant="secondary" onClick={() => onCancel()}>
           Close
         </Button>
-        <Button variant="primary" onClick={() => onSubmit()}>
+        <Button variant="primary" onClick={() => handleSubmit()}>
           Submit
         </Button>
       </Modal.Footer>
