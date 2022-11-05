@@ -11,6 +11,7 @@ import {
   ARROW_TYPE,
   Arrows,
 } from "cm-chessboard/src/cm-chessboard/extensions/arrows/Arrows";
+import audio from "../../../utils/audio";
 
 import EvalBar from "./Evalbar";
 import { getAnalysis } from "../../../api";
@@ -59,8 +60,6 @@ const ChessBoardComponent = ({
 
   const chessboardInstance = useRef();
 
-  const audio = useRef(null);
-
   const loadAnalysisData = useCallback(async (forceReload) => {
     const {
       bestMove,
@@ -81,6 +80,11 @@ const ChessBoardComponent = ({
     if (forceReload) {
       setCnt((cnt) => cnt + 1);
     }
+
+    return {
+      bestMove,
+      score,
+    };
   }, [chess]);
 
   const onMoveComplete = useCallback(
@@ -119,23 +123,27 @@ const ChessBoardComponent = ({
         }
       }
 
-      if (audio.current[audioToPlay]) {
-        audio.current[audioToPlay].play();
+      if (audio[audioToPlay]) {
+        audio[audioToPlay].play();
       }
 
       chessboard.removeArrows();
       chessboard.disableMoveInput();
 
-      await loadAnalysisData();
-
       const mover = chess.turn();
+
+      // dont load analysis for computer player as it will do it when running "makeComputerMove()"
+      if (playerTypeObj[mover] === PlayerType.HUMAN) {
+        await loadAnalysisData();
+      }
+
       setCurrentTurn(mover);
     },
-    [chess, loadAnalysisData]
+    [chess, loadAnalysisData, playerTypeObj]
   );
 
   const handleHumanMove = useCallback(
-    (event) => {
+    async (event) => {
       const { type, chessboard } = event;
 
       chessboard.removeMarkers(MARKER_TYPE.dot);
@@ -164,8 +172,10 @@ const ChessBoardComponent = ({
 
         // result will be null if user tries to make an illegal move
         if (result) {
-          chessboard.setPosition(chess.fen(), true);
-          onMoveComplete(result);
+          chessboard.state.moveInputProcess.then(() => {
+            chessboard.setPosition(chess.fen(), true);
+            onMoveComplete(result);
+          });
         }
 
         return !!result;
@@ -201,24 +211,20 @@ const ChessBoardComponent = ({
 
     if (!chessboard) return
 
-    // get ai move is sync so putting it in timeout so that rendering dont get blocked by it
-    setTimeout(async () => {
-      // smoother with 500ms delay
-      // make api call here 
-      const {
-        bestMove: {
-          from,
-          to,
-        },
-      } = analysis.current;
-      const moveResult = chess.move({ from, to });
-      chessboard.setPosition(chess.fen(), true);
+    const {
+      bestMove: {
+        from,
+        to,
+      },
+    } = await loadAnalysisData();
+    
+    const moveResult = chess.move({ from, to });
+    chessboard.setPosition(chess.fen(), true);
 
-      if (moveResult) {
-        onMoveComplete(moveResult);
-      }
-    }, 500);
-  }, [chess, onMoveComplete]);
+    if (moveResult) {
+      onMoveComplete(moveResult);
+    }
+  }, [chess, loadAnalysisData, onMoveComplete]);
 
   const toggelOrientation = useCallback(async () => {
     const nextValue = chessboardInstance.current.getOrientation() === COLOR.white ? COLOR.black : COLOR.white;
@@ -244,7 +250,6 @@ const ChessBoardComponent = ({
     const to = square;
     
     if (from !== to) {
-      debugger;
       const arrowIndex = allArrows.current.findIndex((arrow) => arrow.from === from && arrow.to === to);
 
       if (arrowIndex > -1) {
@@ -263,7 +268,6 @@ const ChessBoardComponent = ({
   // init
   useEffect(() => {
     if (!chessboardInstance.current) {
-      console.log(chess.fen());
       const element = document.getElementById(ROOT_ID);
       const instance = new Chessboard(element, {
         position: chess.fen(),
@@ -289,17 +293,7 @@ const ChessBoardComponent = ({
       loadAnalysisData(true);
     }
 
-    if (!audio.current) {
-      audio.current = {
-        move: new Audio("/assets/audio/move.mp3"),
-        capture: new Audio("/assets/audio/capture.mp3"),
-        check: new Audio("/assets/audio/check.mp3"),
-        gameStart: new Audio("/assets/audio/game-start.mp3"),
-        gameOver: new Audio("/assets/audio/game-over.mp3"),
-      };
-
-      audio.current.gameStart.play();
-    }
+    audio.gameStart.play();
   }, [chess, handleHumanMove, loadAnalysisData, makeComputerMove, onSquareSelect, playerTypeObj]);
 
   useEffect(() => {
@@ -338,6 +332,7 @@ const ChessBoardComponent = ({
           scoreValue={analysis.current?.score?.value}
         />
       </div>
+
       <div
         onDrag={(e) => console.log(e)}
         onContextMenu={(e) => e.preventDefault()}
