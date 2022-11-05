@@ -1,10 +1,11 @@
 import { COLOR, PIECE } from "cm-chessboard/src/cm-chessboard/Chessboard";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Modal } from "react-bootstrap";
 
 export default function GameOver({ onSubmit, winner, drawReason }) {
   const show = useMemo(() => !!winner || !!drawReason, [drawReason, winner]);
-  const loadChessPieceSvg = useCallback((pieceId, destContainerId, classesToAddToDest = []) => {
+  const areSvgRendered = useRef(false);
+  const loadChessPieceSvg = useCallback((pieceId, destContainerId) => {
     try {
       const svgScale = 175;
       const pieceSprite = document.querySelector(`#chessboardSpriteCache svg #${pieceId}`).outerHTML;
@@ -18,11 +19,6 @@ export default function GameOver({ onSubmit, winner, drawReason }) {
       }
       
       dest.append(pieceSvg.childNodes[0]);
-
-      if (classesToAddToDest.length > 0) {
-        const validClasses = classesToAddToDest.filter((c) => !!c);
-        dest.classList.add(...validClasses);
-      }
     }
     catch (e) {
       return false;
@@ -32,32 +28,46 @@ export default function GameOver({ onSubmit, winner, drawReason }) {
   }, []);
   
   useEffect(() => {
+    if (areSvgRendered.current) return;
+
     const handle = setInterval(() => {
       const existingSprite = document.querySelector('#chessboardSpriteCache svg #wk');
 
       if (existingSprite) {
-        const commonClassesToAdd = ['border', 'border-5', 'rounded'];
-        const winnerClasses = ['bg-primary', 'border-primary'];
+        loadChessPieceSvg(PIECE.bk, "black-king");
+        loadChessPieceSvg(PIECE.wk, "white-king");
 
-        loadChessPieceSvg(PIECE.bk, "black-king", [ ...commonClassesToAdd, ...(winner === COLOR.black ? winnerClasses : [])]);
-        loadChessPieceSvg(PIECE.wk, "white-king", [ ...commonClassesToAdd, ...(winner === COLOR.white ? winnerClasses : [])]);
+        areSvgRendered.current = true;
         clearInterval(handle);
       }
     }, 500);
 
     return () => clearInterval(handle);
-  }, [loadChessPieceSvg, winner, show]);
+  }, [loadChessPieceSvg, winner]);
 
+  // keep modal rendered with <Modal />'s show proper set to true otherwise loading king's svg when modal gets rendered will cause flicker at run time
+  // so keep modal rendered so that we can put svg in it and hide it until game's over
   return (
-    <Modal show={show} onHide={onSubmit}>
+    <Modal
+      show
+      onHide={onSubmit}
+      backdrop={show}
+      className={show ? "d-block" : "d-none pointer-events-none"}
+    >
       <Modal.Header closeButton>
         <Modal.Title>Game Over</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
         <div className="d-flex justify-content-between align-items-center">
-          <div id="white-king" />
-          <div id="black-king" />
+          <div
+            id="white-king"
+            className={`border border-5 rounded ${winner === COLOR.white ? 'bg-primary border-primary' : ''}`}
+          />
+          <div
+            id="black-king"
+            className={`border border-5 rounded ${winner === COLOR.black ? 'bg-primary border-primary' : ''}`}
+          />
         </div>
 
         <div className="mt-2 text-center">
