@@ -3,3 +3,38 @@
     resize: both;
     overflow: auto;
 }
+
+.cm-chessboard.brown .square.black {
+    fill: #c5a076;
+}
+.cm-chessboard.brown .square.white {
+    fill: #ecdab9;
+}
+
+.cm-chessboard.black .square.black {
+    fill: #000000;
+}
+.cm-chessboard.black .square.white {
+    fill: #ffffff;
+}
+
+.cm-chessboard.green .square.black {
+    fill: #4c946a;
+}
+.cm-chessboard.green .square.white {
+    fill: #E0DDCC;
+}
+
+.cm-chessboard.blue .square.black {
+    fill: #86afcf;
+}
+.cm-chessboard.blue .square.white {
+    fill: #d8ecfb;
+}
+
+.cm-chessboard.gray .square.black {
+    fill: #9c9c9c;
+}
+.cm-chessboard.gray .square.white {
+    fill: #ffffff;
+}

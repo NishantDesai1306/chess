@@ -22,21 +22,27 @@ import "cm-chessboard/src/cm-chessboard/extensions/arrows/assets/arrows.css";
 import "./index.css";
 import SettingsMenu from "./Settings";
 import GameOver from "./GameOver";
+import {
+  getBoardStyle,
+  getCoordinateStatus,
+  getFrameStyle,
+  getPieceStyle,
+} from "../../../utils/storage";
 const ROOT_ID = "CHESSBOARD-ROOT";
 
 export const PlayerType = {
-	HUMAN: "HUMAN",
-	AI: "AI",
-}
+  HUMAN: "HUMAN",
+  AI: "AI",
+};
 export const Flags = {
-	NORMAL: 'n',
-	CAPTURE: 'c',
-	BIG_PAWN: 'b',
-	EP_CAPTURE: 'e',
-	PROMOTION: 'p',
-	KSIDE_CASTLE: 'k',
-	QSIDE_CASTLE: 'q',
-}  
+  NORMAL: "n",
+  CAPTURE: "c",
+  BIG_PAWN: "b",
+  EP_CAPTURE: "e",
+  PROMOTION: "p",
+  KSIDE_CASTLE: "k",
+  QSIDE_CASTLE: "q",
+};
 
 const ChessBoardComponent = ({
   chess,
@@ -47,6 +53,13 @@ const ChessBoardComponent = ({
   const [winner, setWinner] = useState(null);
   const [drawReason, setDrawReason] = useState(null);
   const [cnt, setCnt] = useState(0);
+
+  // stored board config
+  const boardStyle = useMemo(() => getBoardStyle(), []);
+  const pieceStyle = useMemo(() => getPieceStyle(), []);
+  const coordinateStatus = useMemo(() => getCoordinateStatus(), []);
+  const frameStyle = useMemo(() => getFrameStyle(), []);
+
   const [currentTurn, setCurrentTurn] = useState(chess.turn());
   const playerTypeObj = useMemo(() => {
     return {
@@ -55,54 +68,55 @@ const ChessBoardComponent = ({
     };
   }, [blackPlayerType, whitePlayerType]);
   const allArrows = useRef([]);
-  const lastArrowSquare = useRef(null); 
+  const lastArrowSquare = useRef(null);
   const analysis = useRef(null);
 
   const chessboardInstance = useRef();
 
-  const loadAnalysisData = useCallback(async (forceReload) => {
-    const {
-      bestMove,
-      score,
-    } = await getAnalysis(chess.fen());
-    const currentOrientation = chessboardInstance.current.getOrientation();
-    const isOrientationCorrect = chess.get(bestMove.from).color === currentOrientation;
+  const loadAnalysisData = useCallback(
+    async (forceReload) => {
+      const { bestMove, score } = await getAnalysis(chess.fen());
+      const currentOrientation = chessboardInstance.current.getOrientation();
+      const isOrientationCorrect =
+        chess.get(bestMove.from).color === currentOrientation;
 
-    if (!isOrientationCorrect) {
-      score.value *= -1;
-    }
+      if (!isOrientationCorrect) {
+        score.value *= -1;
+      }
 
-    analysis.current = {
-      bestMove,
-      score,
-    };
+      analysis.current = {
+        bestMove,
+        score,
+      };
 
-    if (forceReload) {
-      setCnt((cnt) => cnt + 1);
-    }
+      if (forceReload) {
+        setCnt((cnt) => cnt + 1);
+      }
 
-    return {
-      bestMove,
-      score,
-    };
-  }, [chess]);
+      return {
+        bestMove,
+        score,
+      };
+    },
+    [chess]
+  );
 
   const onMoveComplete = useCallback(
     async (moveResult) => {
-      let audioToPlay = 'move';
+      let audioToPlay = "move";
       const { color, captured } = moveResult;
       const chessboard = chessboardInstance.current;
 
       if (!chessboard) return;
 
       if (captured) {
-        audioToPlay = 'capture';
+        audioToPlay = "capture";
       }
       if (chess.inCheck()) {
-        audioToPlay = 'check';
-      } 
+        audioToPlay = "check";
+      }
       if (chess.isGameOver()) {
-        audioToPlay = 'gameOver';
+        audioToPlay = "gameOver";
 
         if (chess.isCheckmate()) {
           setWinner(color);
@@ -209,15 +223,12 @@ const ChessBoardComponent = ({
   const makeComputerMove = useCallback(async () => {
     const chessboard = chessboardInstance.current;
 
-    if (!chessboard) return
+    if (!chessboard) return;
 
     const {
-      bestMove: {
-        from,
-        to,
-      },
+      bestMove: { from, to },
     } = await loadAnalysisData();
-    
+
     const moveResult = chess.move({ from, to });
     chessboard.setPosition(chess.fen(), true);
 
@@ -227,7 +238,10 @@ const ChessBoardComponent = ({
   }, [chess, loadAnalysisData, onMoveComplete]);
 
   const toggelOrientation = useCallback(async () => {
-    const nextValue = chessboardInstance.current.getOrientation() === COLOR.white ? COLOR.black : COLOR.white;
+    const nextValue =
+      chessboardInstance.current.getOrientation() === COLOR.white
+        ? COLOR.black
+        : COLOR.white;
     chessboardInstance.current.setOrientation(nextValue);
     await loadAnalysisData();
     setCnt((cnt) => cnt + 1);
@@ -248,15 +262,16 @@ const ChessBoardComponent = ({
 
     const from = lastArrowSquare.current;
     const to = square;
-    
+
     if (from !== to) {
-      const arrowIndex = allArrows.current.findIndex((arrow) => arrow.from === from && arrow.to === to);
+      const arrowIndex = allArrows.current.findIndex(
+        (arrow) => arrow.from === from && arrow.to === to
+      );
 
       if (arrowIndex > -1) {
         chessboard.removeArrows(ARROW_TYPE.default, from, to);
         allArrows.current.splice(arrowIndex, 1);
-      }
-      else {
+      } else {
         chessboard.addArrow(ARROW_TYPE.default, from, to);
         allArrows.current.push({ from, to });
       }
@@ -271,17 +286,23 @@ const ChessBoardComponent = ({
       const element = document.getElementById(ROOT_ID);
       const instance = new Chessboard(element, {
         position: chess.fen(),
-        sprite: { url: "/assets/images/pieces.svg" },
-        style: { moveFromMarker: undefined, moveToMarker: undefined }, // disable standard markers
+        sprite: { url: pieceStyle },
+        style: {
+          cssClass: boardStyle,
+          borderType: frameStyle,
+          showCoordinates: coordinateStatus,
+        }, // disable standard markers
         orientation: COLOR.white,
-        extensions: [{
-          class: Arrows,
-          props: {
-            sprite: {
-              url: "/assets/images/arrows.svg"
-            }
-          }
-        }]
+        extensions: [
+          {
+            class: Arrows,
+            props: {
+              sprite: {
+                url: "/assets/images/arrows.svg",
+              },
+            },
+          },
+        ],
       });
 
       instance.enableSquareSelect((event) => {
@@ -294,7 +315,18 @@ const ChessBoardComponent = ({
     }
 
     audio.gameStart.play();
-  }, [chess, handleHumanMove, loadAnalysisData, makeComputerMove, onSquareSelect, playerTypeObj]);
+  }, [
+    boardStyle,
+    chess,
+    coordinateStatus,
+    frameStyle,
+    handleHumanMove,
+    loadAnalysisData,
+    makeComputerMove,
+    onSquareSelect,
+    pieceStyle,
+    playerTypeObj,
+  ]);
 
   useEffect(() => {
     const playerTypeOfMover = playerTypeObj[currentTurn];
@@ -317,13 +349,18 @@ const ChessBoardComponent = ({
     } else {
       makeComputerMove();
     }
-  }, [chess, currentTurn, getSquare, handleHumanMove, makeComputerMove, playerTypeObj]);
+  }, [
+    chess,
+    currentTurn,
+    getSquare,
+    handleHumanMove,
+    makeComputerMove,
+    playerTypeObj,
+  ]);
 
   return (
     <div className="h-100 d-flex align-items-center chessboard-container">
-      <div className="d-none">
-        {cnt}
-      </div>
+      <div className="d-none">{cnt}</div>
 
       <div className="px-4 py-2 h-100">
         <EvalBar
@@ -343,16 +380,10 @@ const ChessBoardComponent = ({
       />
 
       <div className="h-100 p-3 d-flex align-items-start">
-        <SettingsMenu
-          toggelOrientation={toggelOrientation}
-        />
+        <SettingsMenu toggelOrientation={toggelOrientation} />
       </div>
 
-      <GameOver
-        winner={winner}
-        drawReason={drawReason}
-        onSubmit={onGameOver}
-      />
+      <GameOver winner={winner} drawReason={drawReason} onSubmit={onGameOver} />
     </div>
   );
 };
