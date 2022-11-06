@@ -108,7 +108,6 @@ const ChessBoardComponent = ({
           setWinner(color);
           console.log(`${color} won the game`);
         } else if (chess.isDraw()) {
-          // show draw popup
           let drawReason = "";
 
           if (chess.isStalemate()) {
@@ -134,7 +133,8 @@ const ChessBoardComponent = ({
 
       // dont load analysis for computer player as it will do it when running "makeComputerMove()"
       if (playerTypeObj[mover] === PlayerType.HUMAN) {
-        await loadAnalysisData();
+        // dont put await here as it will force the analysis to load and then enable input for human player
+        loadAnalysisData();
       }
 
       setCurrentTurn(mover);
