@@ -1,45 +1,54 @@
-import { BORDER_TYPE } from "cm-chessboard/src/cm-chessboard/Chessboard";
+export const SESSION_VERSION = 2;
 
-export const KEYS = {
-  BOARD: "BOARD",
-  PIECE: "PIECE",
-  FRAME: "FRAME",
-  COORDINATES: "COORDINATES",
-};
+const SESSION_KEY = "chess.session";
+const APPEARANCE_KEY = "chess.appearance";
 
-export const DEFAULT_BOARD_STYLE = "brown";
-export const DEFAULT_PIECE_SET = "/assets/images/pieces.svg";
-export const DEFAULT_FRAME = BORDER_TYPE.none;
-export const DEFAULT_COORDINATES = true;
+export const BOARD_THEMES = [
+  { id: "study", name: "The Study", note: "Quiet slate and old paper", light: "#d9d2c2", dark: "#52666a" },
+  { id: "walnut", name: "Walnut Room", note: "Warm wood and parchment", light: "#e0c9a9", dark: "#855d46" },
+  { id: "midnight", name: "Midnight", note: "Cool silver and deep blue", light: "#bdc7c9", dark: "#334b60" },
+];
 
-export function setBoardStyle(boardStyle) {
-  localStorage.setItem(KEYS.BOARD, boardStyle);
-}
-export function getBoardStyle() {
-  const storedValue = localStorage.getItem(KEYS.BOARD);
-  return storedValue || DEFAULT_BOARD_STYLE
-}
+export const PIECE_SETS = [
+  { id: "classic", name: "Classic", url: "/assets/images/pieces.svg" },
+  { id: "staunty", name: "Staunton", url: "/assets/images/pieces-staunty.svg" },
+];
 
-export function setPieceStyle(boardStyle) {
-  localStorage.setItem(KEYS.PIECE, boardStyle);
-}
-export function getPieceStyle() {
-  const storedValue = localStorage.getItem(KEYS.PIECE);
-  return storedValue || DEFAULT_PIECE_SET;
+export const DEFAULT_APPEARANCE = { boardTheme: "study", pieceSet: "classic", coordinates: true };
+
+export function getAppearance() {
+  return readJson(APPEARANCE_KEY, DEFAULT_APPEARANCE, (value) => ({
+    boardTheme: BOARD_THEMES.some((theme) => theme.id === value?.boardTheme) ? value.boardTheme : DEFAULT_APPEARANCE.boardTheme,
+    pieceSet: PIECE_SETS.some((set) => set.id === value?.pieceSet) ? value.pieceSet : DEFAULT_APPEARANCE.pieceSet,
+    coordinates: typeof value?.coordinates === "boolean" ? value.coordinates : DEFAULT_APPEARANCE.coordinates,
+  }));
 }
 
-export function setFrameStyle(frameStyle) {
-  localStorage.setItem(KEYS.FRAME, frameStyle);
-}
-export function getFrameStyle() {
-  const storedValue = localStorage.getItem(KEYS.FRAME);
-  return storedValue || DEFAULT_FRAME;
+export function saveAppearance(appearance) {
+  localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
 }
 
-export function setCoordinateStatus(coordinateStatus) {
-  localStorage.setItem(KEYS.COORDINATES, coordinateStatus);
+export function getSavedSession() {
+  return readJson(SESSION_KEY, null, (value) => {
+    if (value?.version !== SESSION_VERSION || typeof value.pgn !== "string" || !value.players) return null;
+    return value;
+  });
 }
-export function getCoordinateStatus() {
-  const storedValue = localStorage.getItem(KEYS.COORDINATES);
-  return storedValue ? storedValue === "true" : DEFAULT_FRAME;
+
+export function saveSession(session) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ...session, version: SESSION_VERSION }));
+}
+
+export function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function readJson(key, fallback, normalize) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? normalize(JSON.parse(raw)) : fallback;
+  } catch {
+    localStorage.removeItem(key);
+    return fallback;
+  }
 }
