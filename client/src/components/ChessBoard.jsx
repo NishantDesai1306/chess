@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Chessboard, COLOR, INPUT_EVENT_TYPE, MARKER_TYPE, SQUARE_SELECT_TYPE } from "cm-chessboard";
+import { Chessboard, INPUT_EVENT_TYPE, MARKER_TYPE, SQUARE_SELECT_TYPE } from "cm-chessboard";
 import { Arrows, ARROW_TYPE } from "cm-chessboard/src/cm-chessboard/extensions/arrows/Arrows.js";
 import { BOARD_THEMES, PIECE_SETS } from "../utils/storage.js";
 
@@ -16,6 +16,8 @@ export function ChessBoard({ chess, fen, turn, orientation, appearance, canMove,
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
+    const suppressContextMenu = (event) => event.preventDefault();
+    container.addEventListener("contextmenu", suppressContextMenu);
     const pieceSet = PIECE_SETS.find((set) => set.id === appearance.pieceSet) ?? PIECE_SETS[0];
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const board = new Chessboard(container, {
@@ -54,6 +56,7 @@ export function ChessBoard({ chess, fen, turn, orientation, appearance, canMove,
     });
     boardRef.current = board;
     return () => {
+      container.removeEventListener("contextmenu", suppressContextMenu);
       arrowsRef.current = [];
       board.destroy();
       container.replaceChildren();

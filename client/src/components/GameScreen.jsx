@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
 import {
   ArrowDownUp,
@@ -22,10 +22,26 @@ import { useGameController } from "../hooks/useGameController.js";
 
 export function GameScreen({ session, appearance, onAppearanceChange, onSessionChange, onNewGame }) {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const game = useGameController({ session, onSessionChange });
   const entrance = useSpring({ from: { opacity: 0, scale: 0.965, y: 16 }, to: { opacity: 1, scale: 1, y: 0 }, config: { tension: 120, friction: 22 } });
   const topColor = game.orientation === "w" ? "b" : "w";
   const bottomColor = game.orientation;
+  const showGameOver = Boolean(game.outcome) && !outcomeDismissed;
+
+  useEffect(() => {
+    if (!game.outcome) setOutcomeDismissed(false);
+  }, [game.outcome]);
+
+  function handleUndo() {
+    setOutcomeDismissed(false);
+    game.undo();
+  }
+
+  function handleRestart() {
+    setOutcomeDismissed(false);
+    game.restart();
+  }
 
   return (
     <main className="game-page">
@@ -51,8 +67,8 @@ export function GameScreen({ session, appearance, onAppearanceChange, onSessionC
           <EngineStatus status={game.engineStatus} onRetry={game.retryEngine} />
           <section className="notation"><header><h2>Notation</h2><span>{game.history.length} ply</span></header><MoveHistory history={game.history} /></section>
           <div className="game-controls">
-            <button onClick={game.undo} disabled={game.history.length === 0}><Undo2 size={18} /><span>Undo</span></button>
-            <button onClick={game.restart}><RotateCcw size={18} /><span>Restart</span></button>
+            <button onClick={handleUndo} disabled={game.history.length === 0}><Undo2 size={18} /><span>Undo</span></button>
+            <button onClick={handleRestart}><RotateCcw size={18} /><span>Restart</span></button>
             <button onClick={game.flip}><ArrowDownUp size={18} /><span>Flip</span></button>
             <button onClick={game.copyFen}><Clipboard size={18} /><span>Copy FEN</span></button>
             <button onClick={() => setAppearanceOpen(true)}><Palette size={18} /><span>Appearance</span></button>
@@ -64,7 +80,16 @@ export function GameScreen({ session, appearance, onAppearanceChange, onSessionC
 
       {appearanceOpen ? <AppearancePanel appearance={appearance} onChange={onAppearanceChange} onClose={() => setAppearanceOpen(false)} /> : null}
       {game.pendingPromotion ? <PromotionDialog color={game.pendingPromotion.color} onChoose={game.choosePromotion} onClose={game.cancelPromotion} /> : null}
-      {game.outcome ? <GameOverOverlay outcome={game.outcome} onRestart={game.restart} onNewGame={onNewGame} /> : null}
+      {showGameOver ? (
+        <GameOverOverlay
+          outcome={game.outcome}
+          canUndo={game.history.length > 0}
+          onUndo={handleUndo}
+          onDismiss={() => setOutcomeDismissed(true)}
+          onRestart={handleRestart}
+          onNewGame={onNewGame}
+        />
+      ) : null}
       {game.toast ? <div className="toast" role="status">{game.toast}</div> : null}
     </main>
   );

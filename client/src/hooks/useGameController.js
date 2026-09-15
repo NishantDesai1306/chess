@@ -5,11 +5,11 @@ import { DEFAULT_FEN, PLAYER } from "../game/constants.js";
 import audio from "../utils/audio.js";
 
 export function useGameController({ session, onSessionChange }) {
-  const [chess] = useState(() => createChess(session.pgn));
+  const [{ chess, pgnLoaded }] = useState(() => createChess(session.pgn));
   const [engine] = useState(() => new StockfishClient(setEngineStatusSafely));
   const [revision, setRevision] = useState(0);
   const [orientation, setOrientation] = useState(session.orientation ?? "w");
-  const [outcome, setOutcome] = useState(session.outcome ?? getOutcome(chess));
+  const [outcome, setOutcome] = useState(() => resolveInitialOutcome(session, chess, pgnLoaded));
   const [evaluation, setEvaluation] = useState(null);
   const [engineStatus, setEngineStatus] = useState({ phase: "idle", progress: 0, message: "" });
   const [pendingPromotion, setPendingPromotion] = useState(null);
@@ -26,6 +26,19 @@ export function useGameController({ session, onSessionChange }) {
   const canMove = !outcome && currentPlayerType === PLAYER.HUMAN;
 
   useEffect(() => {
+    const reconciled = resolveInitialOutcome(session, chess, pgnLoaded);
+    if (!outcomesEqual(session.outcome, reconciled) || (!pgnLoaded && session.pgn)) {
+      onSessionChange({
+        ...session,
+        pgn: pgnLoaded ? chess.pgn() : "",
+        outcome: reconciled,
+      });
+    }
+    // Mount-only repair for corrupt saved PGN / stale outcome.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (outcome) return undefined;
     let ignore = false;
     let moveTimer;
@@ -38,7 +51,15 @@ export function useGameController({ session, onSessionChange }) {
       setEngineStatus({ phase: "ready", progress: 1, message: "" });
 
       if (currentPlayerType === PLAYER.COMPUTER) {
-        moveTimer = window.setTimeout(() => commitMove(result.bestMove), 260);
+        moveTimer = window.setTimeout(() => {
+          if (!commitMove(result.bestMove)) {
+            setEngineStatus({
+              phase: "error",
+              progress: 0,
+              message: "Stockfish returned a move that could not be played.",
+            });
+          }
+        }, 260);
       }
     }).catch((error) => {
       if (!ignore && error.name !== "AbortError") {
@@ -186,10 +207,27 @@ export function useGameController({ session, onSessionChange }) {
 
 function createChess(pgn) {
   const chess = new Chess();
-  if (pgn) {
-    try { chess.loadPgn(pgn); } catch { return new Chess(); }
+  if (!pgn) return { chess, pgnLoaded: true };
+  try {
+    chess.loadPgn(pgn);
+    return { chess, pgnLoaded: true };
+  } catch {
+    return { chess: new Chess(), pgnLoaded: false };
   }
-  return chess;
+}
+
+function resolveInitialOutcome(session, chess, pgnLoaded) {
+  if (!pgnLoaded) return null;
+  const liveOutcome = getOutcome(chess);
+  if (liveOutcome) return liveOutcome;
+  if (session.outcome?.type === "resignation") return session.outcome;
+  return null;
+}
+
+function outcomesEqual(left, right) {
+  if (left == null && right == null) return true;
+  if (left == null || right == null) return false;
+  return left.type === right.type && left.winner === right.winner && left.reason === right.reason;
 }
 
 function getOutcome(chess) {
