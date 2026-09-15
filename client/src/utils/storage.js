@@ -28,9 +28,12 @@ export function saveAppearance(appearance) {
   localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
 }
 
+const PLAYER_ROLES = new Set(["human", "computer"]);
+
 export function getSavedSession() {
   return readJson(SESSION_KEY, null, (value) => {
     if (value?.version !== SESSION_VERSION || typeof value.pgn !== "string" || !value.players) return null;
+    if (!PLAYER_ROLES.has(value.players.w) || !PLAYER_ROLES.has(value.players.b)) return null;
     return value;
   });
 }

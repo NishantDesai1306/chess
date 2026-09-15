@@ -111,11 +111,24 @@ export class StockfishClient {
     if (!this.activeSearch) return;
     const scoreMatch = line.match(/\bscore\s+(cp|mate)\s+(-?\d+)/);
     if (scoreMatch) this.activeSearch.score = { type: scoreMatch[1], value: Number(scoreMatch[2]) };
-    const moveMatch = line.match(/^bestmove\s+([a-h][1-8])([a-h][1-8])([qrbn])?/);
-    if (!moveMatch) return;
+    if (!line.startsWith("bestmove")) return;
+
     const completed = this.activeSearch;
     window.clearTimeout(completed.timeout);
     this.activeSearch = null;
+
+    const moveMatch = line.match(/^bestmove\s+([a-h][1-8])([a-h][1-8])([qrbn])?/);
+    if (!moveMatch) {
+      if (completed.cancelled) completed.reject(createAbortError());
+      else completed.reject(new Error("The engine returned no legal move."));
+      if (this.queuedSearch) {
+        const next = this.queuedSearch;
+        this.queuedSearch = null;
+        this.startSearch(next);
+      }
+      return;
+    }
+
     if (completed.cancelled) completed.reject(createAbortError());
     else completed.resolve({
       bestMove: { from: moveMatch[1], to: moveMatch[2], promotion: moveMatch[3] },
@@ -145,6 +158,11 @@ export class StockfishClient {
     this.cancelRequest(this.queuedSearch, error);
     this.activeSearch = null;
     this.queuedSearch = null;
+    this.waiters.forEach((waiter) => {
+      window.clearTimeout(waiter.timeout);
+      waiter.reject(error);
+    });
+    this.waiters = [];
     this.worker?.terminate();
     this.worker = null;
     this.readyPromise = null;

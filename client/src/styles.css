@@ -187,7 +187,8 @@ button:disabled { cursor: not-allowed; opacity: 0.38; transform: none !important
 .king-seal { display: grid; place-items: center; width: 4rem; height: 4rem; margin: 0 auto 1.2rem; color: var(--ink); border-radius: 50%; background: var(--brass); box-shadow: 0 0 0 10px rgba(193,163,106,.08); font-size: 2.5rem; }
 .game-over-card h2 { margin-bottom: .6rem; font-size: 2.8rem; }
 .game-over-card > p:not(.eyebrow) { margin: 0 auto 1.6rem; color: var(--smoke); font-size: .8rem; }
-.game-over-actions { display: flex; justify-content: center; gap: .7rem; }
+.game-over-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .7rem; }
+.game-over-actions button { display: inline-flex; align-items: center; gap: .45rem; }
 .toast { position: fixed; z-index: 40; left: 50%; bottom: 2rem; transform: translateX(-50%); padding: .7rem 1rem; color: var(--ink); border-radius: 2rem; background: var(--parchment); box-shadow: 0 12px 35px rgba(0,0,0,.3); font-size: .7rem; font-weight: 600; animation: toast-in 180ms ease both; }
 
 @keyframes reveal { from { opacity: 0; transform: translateY(-6px); } }
