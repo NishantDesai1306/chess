@@ -3,6 +3,8 @@ import { animated, useSpring } from "@react-spring/web";
 import { Bot, ChevronDown, FileText, Sparkles, UserRound } from "lucide-react";
 import { Chess, validateFen } from "chess.js";
 import { DEFAULT_FEN, PLAYER } from "../game/constants.js";
+import { DEFAULT_ENGINE_SKILL } from "../engine/levels.js";
+import { EngineLevelControl } from "./EngineLevelControl.jsx";
 
 const SIDES = [
   { color: "w", name: "White" },
@@ -11,6 +13,7 @@ const SIDES = [
 
 export function SetupScreen({ appearance, onStart }) {
   const [players, setPlayers] = useState({ w: PLAYER.HUMAN, b: PLAYER.COMPUTER });
+  const [engineSkill, setEngineSkill] = useState(DEFAULT_ENGINE_SKILL);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [fen, setFen] = useState("");
   const [pgn, setPgn] = useState("");
@@ -38,6 +41,7 @@ export function SetupScreen({ appearance, onStart }) {
         pgn: chess.pgn(),
         startingFen: chess.getHeaders().FEN ?? DEFAULT_FEN,
         players,
+        engineSkill,
         orientation: "w",
         appearance,
         outcome: null,
@@ -88,6 +92,10 @@ export function SetupScreen({ appearance, onStart }) {
               </fieldset>
             ))}
           </div>
+
+          {Object.values(players).includes(PLAYER.COMPUTER) ? (
+            <EngineLevelControl id="setup-engine-level" value={engineSkill} onChange={setEngineSkill} />
+          ) : null}
 
           <button className="primary-button start-button" onClick={handleStart}>Begin game <span>→</span></button>
 

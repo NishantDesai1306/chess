@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Chess } from "chess.js";
 import { StockfishClient } from "../engine/StockfishClient.js";
+import { getEngineLevel, normalizeEngineSkill } from "../engine/levels.js";
 import { DEFAULT_FEN, PLAYER } from "../game/constants.js";
 import audio from "../utils/audio.js";
 
@@ -11,6 +12,7 @@ export function useGameController({ session, onSessionChange }) {
   const [orientation, setOrientation] = useState(session.orientation ?? "w");
   const [outcome, setOutcome] = useState(() => resolveInitialOutcome(session, chess, pgnLoaded));
   const [evaluation, setEvaluation] = useState(null);
+  const [positionAnalysis, setPositionAnalysis] = useState(null);
   const [engineStatus, setEngineStatus] = useState({ phase: "idle", progress: 0, message: "" });
   const [pendingPromotion, setPendingPromotion] = useState(null);
   const [toast, setToast] = useState("");
@@ -22,6 +24,7 @@ export function useGameController({ session, onSessionChange }) {
   const fen = chess.fen();
   const turn = chess.turn();
   const history = chess.history({ verbose: true });
+  const engineSkill = normalizeEngineSkill(session.engineSkill);
   const currentPlayerType = session.players[turn];
   const canMove = !outcome && currentPlayerType === PLAYER.HUMAN;
 
@@ -44,10 +47,12 @@ export function useGameController({ session, onSessionChange }) {
     let moveTimer;
 
     setEngineStatus((current) => ({ ...current, phase: current.phase === "idle" ? "loading" : "thinking", message: "" }));
-    engine.analyze(fen, 15).then((result) => {
+    engine.analyze(fen, 15, engineSkill).then((result) => {
       if (ignore) return;
       const normalizedValue = turn === "b" ? -result.score.value : result.score.value;
-      setEvaluation({ ...result.score, value: normalizedValue });
+      const normalizedResult = { ...result, score: { ...result.score, value: normalizedValue } };
+      setEvaluation(normalizedResult.score);
+      setPositionAnalysis({ fen, result: normalizedResult });
       setEngineStatus({ phase: "ready", progress: 1, message: "" });
 
       if (currentPlayerType === PLAYER.COMPUTER) {
@@ -72,7 +77,7 @@ export function useGameController({ session, onSessionChange }) {
       window.clearTimeout(moveTimer);
       engine.cancel();
     };
-  }, [currentPlayerType, engine, fen, outcome, revision, turn]);
+  }, [currentPlayerType, engine, engineSkill, fen, outcome, revision, turn]);
 
   useEffect(() => () => engine.destroy(), [engine]);
 
@@ -137,6 +142,7 @@ export function useGameController({ session, onSessionChange }) {
     setOutcome(null);
     setPendingPromotion(null);
     setEvaluation(null);
+    setPositionAnalysis(null);
     setRevision((value) => value + 1);
     persist(null);
   }
@@ -147,6 +153,7 @@ export function useGameController({ session, onSessionChange }) {
     setOutcome(null);
     setPendingPromotion(null);
     setEvaluation(null);
+    setPositionAnalysis(null);
     setRevision((value) => value + 1);
     persist(null);
     playAudio("gameStart");
@@ -167,29 +174,46 @@ export function useGameController({ session, onSessionChange }) {
     persist(outcome, nextOrientation);
   }
 
-  async function copyFen() {
-    try {
-      await navigator.clipboard.writeText(chess.fen());
-      setToast("FEN copied");
-    } catch {
-      setToast("Could not copy FEN");
-    }
-  }
-
   function retryEngine() {
     setEngineStatus({ phase: "loading", progress: 0, message: "" });
     engine.retry().then(() => setRevision((value) => value + 1)).catch(() => {});
   }
 
+  const analyzePosition = useCallback(async (positionFen, depth) => {
+    const result = await engine.analyze(positionFen, depth, 20);
+    const positionTurn = positionFen.split(" ")[1];
+    const score = positionTurn === "b" ? { ...result.score, value: -result.score.value } : result.score;
+    setEngineStatus({ phase: "ready", progress: 1, message: "" });
+    return { ...result, score };
+  }, [engine]);
+
+  const cancelAnalysis = useCallback(() => {
+    engine.cancel();
+    setEngineStatus((current) => current.phase === "error" ? current : { phase: "ready", progress: 1, message: "" });
+  }, [engine]);
+
+  function changeEngineSkill(value) {
+    const nextSkill = normalizeEngineSkill(value);
+    if (nextSkill === engineSkill) return;
+    engine.cancel();
+    setEvaluation(null);
+    setPositionAnalysis(null);
+    onSessionChange({ ...session, engineSkill: nextSkill });
+    setToast(`Stockfish set to ${getEngineLevel(nextSkill).name}`);
+  }
+
   return {
     chess,
+    pgn: chess.pgn(),
     fen,
     turn,
     history,
     orientation,
     outcome,
     evaluation,
+    currentAnalysis: positionAnalysis?.fen === fen ? positionAnalysis.result : null,
     engineStatus,
+    engineSkill,
     pendingPromotion,
     toast,
     canMove,
@@ -200,8 +224,10 @@ export function useGameController({ session, onSessionChange }) {
     restart,
     resign,
     flip,
-    copyFen,
     retryEngine,
+    changeEngineSkill,
+    analyzePosition,
+    cancelAnalysis,
   };
 }
 

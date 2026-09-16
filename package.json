@@ -8,6 +8,7 @@
     "start": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
     "preview": "npm --prefix client run preview",
+    "preview:pwa": "npm run build && npm run preview",
     "install:client": "npm --prefix client install"
   },
   "license": "MIT"

@@ -1,3 +1,5 @@
+import { DEFAULT_ENGINE_SKILL, normalizeEngineSkill } from "../engine/levels.js";
+
 export const SESSION_VERSION = 2;
 
 const SESSION_KEY = "chess.session";
@@ -34,7 +36,7 @@ export function getSavedSession() {
   return readJson(SESSION_KEY, null, (value) => {
     if (value?.version !== SESSION_VERSION || typeof value.pgn !== "string" || !value.players) return null;
     if (!PLAYER_ROLES.has(value.players.w) || !PLAYER_ROLES.has(value.players.b)) return null;
-    return value;
+    return { ...value, engineSkill: normalizeEngineSkill(value.engineSkill ?? DEFAULT_ENGINE_SKILL) };
   });
 }
 

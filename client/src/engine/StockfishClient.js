@@ -1,3 +1,5 @@
+import { getCachedAnalysis, setCachedAnalysis } from "./analysisCache.js";
+
 const ENGINE_URL = "/engine/stockfish.js";
 const SEARCH_TIMEOUT_MS = 30_000;
 
@@ -11,10 +13,15 @@ export class StockfishClient {
     this.queuedSearch = null;
   }
 
-  async analyze(fen, depth = 15) {
+  async analyze(fen, depth = 15, skillLevel = 20) {
+    const cached = await getCachedAnalysis({ fen, depth, skillLevel });
+    if (cached) {
+      this.onStatus?.({ phase: "ready", progress: 1, cached: true });
+      return cached;
+    }
     await this.ensureReady();
     return new Promise((resolve, reject) => {
-      const request = { fen, depth, resolve, reject, score: null };
+      const request = { fen, depth, skillLevel, resolve, reject, score: null };
       if (this.activeSearch) {
         this.cancelRequest(this.queuedSearch);
         this.queuedSearch = request;
@@ -95,6 +102,7 @@ export class StockfishClient {
     this.activeSearch = request;
     this.onStatus?.({ phase: "thinking", progress: 1 });
     request.timeout = window.setTimeout(() => this.handleFailure(new Error("The engine took too long to respond.")), SEARCH_TIMEOUT_MS);
+    this.worker.postMessage(`setoption name Skill Level value ${request.skillLevel}`);
     this.worker.postMessage(`position fen ${request.fen}`);
     this.worker.postMessage(`go depth ${request.depth}`);
   }
@@ -111,6 +119,8 @@ export class StockfishClient {
     if (!this.activeSearch) return;
     const scoreMatch = line.match(/\bscore\s+(cp|mate)\s+(-?\d+)/);
     if (scoreMatch) this.activeSearch.score = { type: scoreMatch[1], value: Number(scoreMatch[2]) };
+    const principalVariation = parsePrincipalVariation(line);
+    if (principalVariation.length > 0) this.activeSearch.pv = principalVariation;
     if (!line.startsWith("bestmove")) return;
 
     const completed = this.activeSearch;
@@ -130,10 +140,15 @@ export class StockfishClient {
     }
 
     if (completed.cancelled) completed.reject(createAbortError());
-    else completed.resolve({
-      bestMove: { from: moveMatch[1], to: moveMatch[2], promotion: moveMatch[3] },
-      score: completed.score ?? { type: "cp", value: 0 },
-    });
+    else {
+      const result = {
+        bestMove: { from: moveMatch[1], to: moveMatch[2], promotion: moveMatch[3] },
+        score: completed.score ?? { type: "cp", value: 0 },
+        pv: completed.pv ?? [],
+      };
+      setCachedAnalysis({ fen: completed.fen, depth: completed.depth, skillLevel: completed.skillLevel, result });
+      completed.resolve(result);
+    }
     if (this.queuedSearch) {
       const next = this.queuedSearch;
       this.queuedSearch = null;
@@ -177,4 +192,11 @@ export class StockfishClient {
 
 function createAbortError() {
   return new DOMException("Engine request cancelled", "AbortError");
+}
+
+export function parsePrincipalVariation(line) {
+  const marker = " pv ";
+  const markerIndex = line.indexOf(marker);
+  if (markerIndex < 0) return [];
+  return line.slice(markerIndex + marker.length).trim().split(/\s+/).filter((move) => /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move));
 }
